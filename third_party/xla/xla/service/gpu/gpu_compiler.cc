@@ -1002,6 +1002,32 @@ absl::Status GpuCompiler::OptimizeHloModule(
     TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
   }
 
+  // TODO(b/328264715): Add tests to ensure that layout normalization pass is
+  // run before any fusion pass.
+  HloPassPipeline layout_normalization_pipeline("layout normalization");
+  const DebugOptions& debug_options = hlo_module->config().debug_options();
+  const AlgebraicSimplifierOptions simplifier_options = [&] {
+    AlgebraicSimplifierOptions opts =
+        GetAlgebraicSimplifierOptions(hlo_module->config());
+    opts.set_supports_non_canonical_dots(false);
+    opts.set_is_layout_sensitive(true);
+    opts.set_enable_conv_operand_swap(false);
+    // "slow" minmax means we propagate nan.
+    opts.set_minmax_propagate_nan(!debug_options.xla_gpu_enable_fast_min_max());
+    opts.set_enable_unconditional_reduce_of_concat_replacement(false);
+    return opts;
+  }();
+  if (debug_options.xla_gpu_normalize_layouts()) {
+    layout_normalization_pipeline.AddPass<ReshapeDecomposer>();
+    layout_normalization_pipeline.AddPass<HloPassFix<MoveCopyToUsers>>();
+    layout_normalization_pipeline.AddPass<LayoutNormalization>(
+        &NormalizeLayoutForGpuCustomCalls);
+    // The LayoutAssignment pass may leave behind kCopy instructions which are
+    // duplicate or NOPs, so remove them with algebraic simplification and CSE.
+    layout_normalization_pipeline.AddPass<HloPassFix<AlgebraicSimplifier>>(
+        simplifier_options);
+  }
+  TF_RETURN_IF_ERROR(layout_normalization_pipeline.Run(hlo_module).status());
   // Run target-specific HLO optimization passes after layout assignment.
   TF_RETURN_IF_ERROR(OptimizeHloPostLayoutAssignment(
       hlo_module, stream_exec, options, gpu_target_config, thread_pool.get()));
@@ -1195,7 +1221,7 @@ absl::Status GpuCompiler::OptimizeHloModule(
   }
 
   return absl::OkStatus();
-}
+}  // NOLINT(readability/fn_size)
 
 AlgebraicSimplifierOptions GpuCompiler::GetAlgebraicSimplifierOptions(
     const HloModuleConfig& config) {
@@ -1261,21 +1287,15 @@ absl::Status GpuCompiler::OptimizeHloPostLayoutAssignment(
   {
     HloPassPipeline pipeline("hlo normalization");
 
-    // The LayoutAssignment pass may leave behind kCopy instructions which are
-    // duplicate or NOPs, so remove them with algebraic simplification and CSE.
-    pipeline.AddPass<HloPassFix<AlgebraicSimplifier>>(simplifier_options);
-
     // GemmRewriter assumes that all transposes are folded into gemms, but,
     // since commit 7d529df, this is not always true at this point.
     // Therefore, rerun transpose folding.
     pipeline.AddPass<TransposeFolding>(CanFoldTransposeOperandIntoDot,
                                        TransposeFolding::NeverFoldTranspose);
 
-    pipeline.AddPass<ReshapeDecomposer>();
     pipeline.AddPass<ReduceDecomposer>([&](const HloInstruction* r) {
       return IsReductionFromOrToContiguousDimensions(*r);
     });
-    pipeline.AddPass<HloPassFix<MoveCopyToUsers>>();
 
     // Greedy pattern matching for custom kernel fusions. We run it before
     // Triton rewriter or a regular Gemm rewriter to be able to match compatible
@@ -1302,10 +1322,6 @@ absl::Status GpuCompiler::OptimizeHloPostLayoutAssignment(
     // Rewrite GEMMs with broadcasted inputs as strided GEMMs.
     pipeline.AddPass<GemmBroadcastFoldingRewriter>();
 
-    if (debug_options.xla_gpu_normalize_layouts()) {
-      pipeline.AddPass<LayoutNormalization>(&NormalizeLayoutForGpuCustomCalls);
-      pipeline.AddPass<HloPassFix<AlgebraicSimplifier>>(simplifier_options);
-    }
     pipeline.AddPass<BroadcastCanonicalizer>();
 
     pipeline.AddPass<ReductionDegenerateDimRemover>();
@@ -1361,10 +1377,6 @@ absl::Status GpuCompiler::OptimizeHloPostLayoutAssignment(
   pipeline.AddPass<GemmRewriter>(gpu_version);
   // Rewrite GEMMs with broadcasted inputs as strided GEMMs.
   pipeline.AddPass<GemmBroadcastFoldingRewriter>();
-  if (debug_options.xla_gpu_normalize_layouts()) {
-    pipeline.AddPass<LayoutNormalization>(&NormalizeLayoutForGpuCustomCalls);
-    pipeline.AddPass<HloPassFix<AlgebraicSimplifier>>(simplifier_options);
-  }
 
   TF_RETURN_IF_ERROR(AddConvAndGemmAutotuningPasses(
       &pipeline, hlo_module, autotune_config, thread_pool));
