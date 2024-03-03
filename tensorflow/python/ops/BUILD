@@ -3122,6 +3122,7 @@ py_strict_library(
         ":resource_variable_ops_gen",
         ":state_ops",
         ":state_ops_gen",
+        "//tensorflow/compiler/tf2xla/ops:gen_xla_ops",
         "//tensorflow/core:protos_all_py",
         "//tensorflow/core/function/trace_type",
         "//tensorflow/python:pywrap_tensorflow",
@@ -3154,7 +3155,6 @@ py_strict_library(
         "//tensorflow/python/util:tf_should_use",
         "//tensorflow/python/util:traceback_utils",
         "//third_party/py/numpy",
-        "@absl_py//absl/logging",
         "@pypi_typing_extensions//:pkg",
     ],
 )

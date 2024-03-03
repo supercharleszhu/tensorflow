@@ -14,6 +14,8 @@ py_strict_library(
     deps = [
         "//tensorflow/compiler/tf2xla/python:xla",
         "//tensorflow/core:protos_all_py",
+        "//tensorflow/python/eager:context",
+        "//tensorflow/python/ops:resource_variable_ops",
         "//third_party/py/numpy",
         "@local_xla//xla:xla_data_proto_py",
     ],
