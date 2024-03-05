@@ -704,7 +704,9 @@ message DebugOptions {
   // Let GEMM fusion autotuning probe cuDNN as a backend.
   bool xla_gpu_cudnn_gemm_fusion = 277;
 
-  // Next id: 279
+  int64 xla_gpu_gemm_rewrite_size_threshold = 279;
+
+  // Next id: 280
 
   // Extra options to pass to the compilation backend (e.g. LLVM); specific
   // interpretation of these values is left to the backend.
