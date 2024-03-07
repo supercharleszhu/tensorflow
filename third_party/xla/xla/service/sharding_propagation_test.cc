@@ -10072,6 +10072,31 @@ ENTRY %entry {
               op::Sharding("{devices=[4]0,1,2,3}"));
 }
 
+TEST_F(ShardingPropagationTest, PropagateToTupleParameter) {
+  const char* const hlo_string = R"(
+HloModule module
+
+ENTRY %entry {
+  %param = (f32[4], f32[4]) parameter(0)
+  %gte0 = f32[4] get-tuple-element(%param), index=0
+  %gte1 = f32[4] get-tuple-element(%param), index=1
+  ROOT %add = f32[4] add(%gte0, %gte1), sharding={devices=[4]0,1,2,3}
+})";
+  TF_ASSERT_OK_AND_ASSIGN(auto module,
+                          ParseAndReturnVerifiedModule(hlo_string));
+  TF_ASSERT_OK_AND_ASSIGN(
+      bool changed,
+      ShardingPropagation(
+          /*is_spmd=*/true, /*propagate_metadata=*/true,
+          /*allow_spmd_sharding_propagation_to_output=*/{false},
+          /*allow_spmd_sharding_propagation_to_parameters=*/{true, true})
+          .Run(module.get()));
+  XLA_VLOG_LINES(1, module->ToString());
+  EXPECT_TRUE(changed);
+  EXPECT_THAT(module->entry_computation()->parameter_instruction(0),
+              op::Sharding("{{devices=[4]0,1,2,3}, {devices=[4]0,1,2,3}}"));
+}
+
 TEST_F(ShardingPropagationTest, PropagateManualOutfeed) {
   const char* const hlo_string = R"(
 HloModule module

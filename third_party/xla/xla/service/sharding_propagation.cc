@@ -38,6 +38,7 @@ limitations under the License.
 #include "xla/hlo/ir/hlo_computation.h"
 #include "xla/hlo/ir/hlo_instruction.h"
 #include "xla/hlo/ir/hlo_instructions.h"
+#include "xla/hlo/ir/hlo_module.h"
 #include "xla/hlo/ir/hlo_opcode.h"
 #include "xla/hlo/ir/hlo_sharding.h"
 #include "xla/hlo/ir/hlo_sharding_metadata.h"
@@ -2962,8 +2963,18 @@ absl::StatusOr<bool> ShardingPropagation::Run(
            "computation.";
   }
   if (allow_spmd_sharding_propagation_to_parameters_) {
+    auto is_same_sized_tuple = [](HloModule* module, int64_t size) {
+      if (module->entry_computation()->num_parameters() != 1) {
+        return false;
+      }
+      HloInstruction* param =
+          module->entry_computation()->parameter_instruction(0);
+      return param->shape().IsTuple() &&
+             size == param->shape().tuple_shapes_size();
+    };
     auto size = allow_spmd_sharding_propagation_to_parameters_vector_.size();
-    CHECK(size == 1 || size == module->entry_computation()->num_parameters())
+    CHECK(size == 1 || size == module->entry_computation()->num_parameters() ||
+          is_same_sized_tuple(module, size))
         << "allow-spmd-sharding-propagation-to-parameters-vector's size can be "
            "either 1 or the number of parameters in the entry computation.";
   }
