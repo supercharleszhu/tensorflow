@@ -82,10 +82,10 @@ def quantize_saved_model(
   if not (
       config.HasField('static_range_ptq_preset')
       and len(config.static_range_ptq_preset.representative_datasets) == 1
-  ):
+  ) and not config.HasField('weight_only_preset'):
     raise ValueError(
         '`quantize_saved_model` currently only supports static-range PTQ with a'
-        ' single signature.'
+        ' single signature or weight-only quantization.'
     )
 
   config = qc.QuantizationConfig.FromString(

@@ -244,10 +244,19 @@ StaticRangePtqComponent::StaticRangePtqComponent(
 
 absl::StatusOr<ModuleOp> StaticRangePtqComponent::Run(
     ModuleOp module_op, const QuantizationConfig& config) {
-  // Runs sub-components in sequence: PreCalibrationComponent ->
-  // CalibrationComponent -> PostCalibrationComponents.
-  for (std::unique_ptr<Component>& sub_component : sub_components_) {
-    TF_ASSIGN_OR_RETURN(module_op, sub_component->Run(module_op, config));
+  if (config.has_static_range_ptq_preset()) {
+    // Runs sub-components in sequence: PreCalibrationComponent ->
+    // CalibrationComponent -> PostCalibrationComponents.
+    for (std::unique_ptr<Component>& sub_component : sub_components_) {
+      TF_ASSIGN_OR_RETURN(module_op, sub_component->Run(module_op, config));
+    }
+  }
+
+  // For weight-only quantization, skip CalibrationComponent and run
+  // PreCalibrationComponent -> PostCalibrationComponent.
+  if (config.has_weight_only_preset()) {
+    TF_ASSIGN_OR_RETURN(module_op, sub_components_[0]->Run(module_op, config));
+    TF_ASSIGN_OR_RETURN(module_op, sub_components_[2]->Run(module_op, config));
   }
 
   return module_op;

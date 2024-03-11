@@ -736,5 +736,77 @@ class StaticRangeQuantizationTest(quantize_model_test_base.QuantizedModelTest):
     self.assertNotAllClose(new_outputs, expected_outputs, rtol=0.00001)
 
 
+class WeightOnlyQuantizationTest(quantize_model_test_base.QuantizedModelTest):
+
+  @parameterized.parameters(
+      testing.parameter_combinations([{
+          'bias_fn': (
+              None,
+              nn_ops.bias_add,
+          ),
+          'activation_fn': (
+              None,
+              nn_ops.relu,
+              nn_ops.relu6,
+          ),
+          'dim_sizes': (
+              # tf.MatMul cases.
+              ([None, 1024], [1024, 3]),  # dynamic batch dim.
+              ([1, 1024], [1024, 3]),
+              # tf.BatchMatMul cases.
+              ([10, 1, 1024], [10, 1024, 3]),
+              ([2, 3, 1, 1024], [2, 3, 1024, 3]),
+          ),
+      }])
+  )
+  @test_util.run_in_graph_and_eager_modes
+  def test_matmul_weight_only_model(
+      self,
+      bias_fn: Optional[ops.Operation],
+      activation_fn: Optional[ops.Operation],
+      dim_sizes: Sequence[int],
+  ):
+    lhs_dim_size, rhs_dim_size = dim_sizes
+    input_shape = (*lhs_dim_size,)
+    filter_shape = (*rhs_dim_size,)
+    static_input_shape = [dim if dim is not None else 2 for dim in input_shape]
+    model = self._create_matmul_model(
+        input_shape,
+        filter_shape,
+        self._input_saved_model_path,
+        bias_fn,
+        activation_fn,
+    )
+
+    rng = np.random.default_rng(1234)
+    input_data = ops.convert_to_tensor(
+        rng.uniform(low=0.0, high=1.0, size=static_input_shape).astype(
+            np.float32
+        )
+    )
+
+    config = qc.QuantizationConfig(
+        weight_only_preset=qc.WeightOnlyPreset(),
+        tf_saved_model=qc.TfSavedModelConfig(tags=[tag_constants.SERVING]),
+    )
+    quantization.quantize_saved_model(
+        self._input_saved_model_path,
+        self._output_saved_model_path,
+        config,
+    )
+
+    expected_outputs = model.matmul(input_data)
+
+    root = load.load(self._output_saved_model_path)
+    self.assertCountEqual(root.signatures.keys(), {'serving_default'})
+
+    new_outputs = root.signatures['serving_default'](
+        input_tensor=ops.convert_to_tensor(input_data)
+    )
+    # Tests that the quantized graph outputs similar values. The rtol and atol
+    # values are arbitrary.
+    self.assertAllClose(new_outputs, expected_outputs, rtol=0.03, atol=0.2)
+
+
 if __name__ == '__main__':
   test.main()

@@ -28,15 +28,15 @@ limitations under the License.
 namespace mlir::quant::stablehlo {
 
 using ::stablehlo::quantization::DebuggerConfig;
-using ::stablehlo::quantization::PipelineConfig;
+using ::stablehlo::quantization::QuantizationConfig;
 using ::stablehlo::quantization::QuantizationSpecs;
-using ::stablehlo::quantization::StaticRangePtqPreset;
 using ::tensorflow::quantization::CalibrationOptions;
 
 void AddPreCalibrationPasses(OpPassManager& pm,
-                             const CalibrationOptions& calibration_options,
-                             const QuantizationSpecs& quantization_specs,
-                             const DebuggerConfig& debugger_config) {
+                             const QuantizationConfig& config,
+                             const CalibrationOptions& calibration_options) {
+  const QuantizationSpecs& quantization_specs = config.specs();
+  const DebuggerConfig& debugger_config = config.debugger_config();
   // For models with NCHW convolution format. This pass is required because
   // downstream pipeline handles NHWC convolution better for most cases.
   pm.addNestedPass<func::FuncOp>(createNchwConvolutionToNhwcPass());
@@ -46,26 +46,35 @@ void AddPreCalibrationPasses(OpPassManager& pm,
     pm.addPass(CreateAddDumpTensorOpPass(debugger_config.debugger_type(),
                                          debugger_config.log_dir_path()));
   }
-  pm.addNestedPass<func::FuncOp>(
-      CreateInsertCustomAggregationOpsPass(calibration_options));
-  pm.addPass(CreateIssueIDsOfCustomAggregationOpsPass());
-  // StableHLO Quantizer currently uses TF's calibration passes. Serialize
-  // the StableHLO module as tf.XlaCallModule to run calibration.
-  AddCallModuleSerializationPasses(pm);
+
+  if (!config.has_weight_only_preset()) {
+    pm.addNestedPass<func::FuncOp>(
+        CreateInsertCustomAggregationOpsPass(calibration_options));
+    pm.addPass(CreateIssueIDsOfCustomAggregationOpsPass());
+    // StableHLO Quantizer currently uses TF's calibration passes. Serialize
+    // the StableHLO module as tf.XlaCallModule to run calibration.
+    AddCallModuleSerializationPasses(pm);
+  }
 }
 
-void AddPostCalibrationPasses(
-    OpPassManager& pm, const PipelineConfig& pipeline_config,
-    const StaticRangePtqPreset& static_range_ptq_preset) {
+void AddPostCalibrationPasses(OpPassManager& pm,
+                              const QuantizationConfig& config) {
   QuantizeCompositeFunctionsPassOptions options;
-  options.enable_per_channel_quantized_weight_ =
-      static_range_ptq_preset.enable_per_channel_quantized_weight();
-  // For debugging purposes.
-  options.mlir_dump_file_name_ = "quantize_composite_functions";
+  if (config.has_static_range_ptq_preset()) {
+    options.enable_per_channel_quantized_weight_ =
+        config.static_range_ptq_preset().enable_per_channel_quantized_weight();
+    pm.addNestedPass<func::FuncOp>(
+        CreateConvertCustomAggregationOpToQuantStatsPass());
+  }
   pm.addNestedPass<func::FuncOp>(
       CreateConvertCustomAggregationOpToQuantStatsPass());
+
+  // For debugging purposes.
+  options.mlir_dump_file_name_ = "quantize_composite_functions";
+  options.enable_weight_only_ = config.has_weight_only_preset();
   pm.addPass(createQuantizeCompositeFunctionsPass(options));
-  if (pipeline_config.unpack_quantized_types()) {
+
+  if (config.pipeline_config().unpack_quantized_types()) {
     AddStablehloQuantToIntPasses(pm);
   }
   AddCallModuleSerializationPasses(pm);
