@@ -42,6 +42,24 @@ bool IsSupportedByReplicatedBridge(mlir::ModuleOp module);
 // such graph as an inference graph. Otherwise, it is non inference graph.
 bool HasTPUPartitionedCallOpInModule(mlir::ModuleOp module);
 
+// Check if a graph contains TPUPartitionedCall op, including its reachable
+// functions
+bool IsInferenceGraph(const Graph& graph,
+                      const FunctionLibraryDefinition* function_library,
+                      std::optional<ConfigProto> config_proto);
+
+// Traverses each node in the graph and check if any of them is
+// TPUPartitionedCall. If so, return true. Otherwise, return false.
+bool AnalyzeGraphNodes(const Graph& graph);
+
+// Checks any reachable functions from `graph_def` in `flib_def`
+// for inference graphs.
+bool AnalyzeReachableFunctions(const GraphDef& graph_def,
+                               const FunctionLibraryDefinition& flib_def);
+
+// Iterate all functions from the flib_def if there are any that belong to
+// the inference graph.
+bool AnalyzeInferenceGraphs(const FunctionLibraryDefinition& flib_def);
 }  // namespace tensorflow
 
 #endif  // TENSORFLOW_COMPILER_MLIR_TF2XLA_INTERNAL_MLIR_BRIDGE_PASS_UTIL_H_
