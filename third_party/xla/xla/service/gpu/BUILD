@@ -5104,15 +5104,20 @@ cc_library(
         "//xla:shape_util",
         "//xla:status_macros",
         "//xla:statusor",
+        "//xla:util",
         "//xla/hlo/ir:hlo",
         "//xla/service:hlo_pass",
         "//xla/service:pattern_matcher",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@local_tsl//tsl/platform:errors",
+        "@local_tsl//tsl/platform:statusor",
     ],
 )
 
@@ -5158,10 +5163,12 @@ cc_library(
         "//xla/service:pattern_matcher",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings:string_view",
         "@local_tsl//tsl/platform:errors",
+        "@local_tsl//tsl/platform:statusor",
     ],
 )
 
@@ -5279,6 +5286,7 @@ tsl_gpu_library(
         "//xla/service:custom_call_target_registry",
         "//xla/service:platform_util",
         "//xla/stream_executor",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
@@ -5331,6 +5339,7 @@ xla_cc_test(
         "//xla/service:hlo_parser",
         "//xla/tests:hlo_test_base",
         "//xla/tests:xla_internal_test_main",
+        "@com_google_absl//absl/strings",
         "@local_tsl//tsl/lib/core:status_test_util",
     ],
 )
@@ -5341,14 +5350,20 @@ cc_library(
     hdrs = ["scatter_slice_simplifier.h"],
     deps = [
         "//xla:shape_util",
+        "//xla:util",
         "//xla/hlo/ir:hlo",
         "//xla/service:hlo_creation_utils",
         "//xla/service:hlo_pass",
         "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings:string_view",
+        "@com_google_absl//absl/types:span",
+        "@local_tsl//tsl/platform:errors",
+        "@local_tsl//tsl/platform:statusor",
     ],
 )
 
@@ -5380,6 +5395,7 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@local_tsl//tsl/platform:protobuf",
+        "@local_tsl//tsl/platform:statusor",
     ],
 )
 
@@ -5463,6 +5479,7 @@ xla_cc_test(
     ]),
     tags = tf_gpu_tests_tags(),
     deps = [
+        ":topk_specializer",
         "//xla:shape_util",
         "//xla:status",
         "//xla:statusor",
@@ -5471,7 +5488,6 @@ xla_cc_test(
         "//xla/service:hlo_pass",
         "//xla/service:platform_util",
         "//xla/service:topk_rewriter",
-        "//xla/service/gpu:topk_specializer",
         "//xla/tests:hlo_test_base",
         "//xla/tests:xla_internal_test_main",  # fixdeps: keep
         "@com_google_absl//absl/container:flat_hash_set",
@@ -5623,6 +5639,7 @@ cc_library(
     hdrs = ["fusion_wrapper.h"],
     deps = [
         ":gpu_fusible",
+        "//xla:status",
         "//xla:status_macros",
         "//xla:statusor",
         "//xla/hlo/ir:hlo",
@@ -5908,6 +5925,7 @@ cc_library(
         "//xla/service:pattern_matcher",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:string_view",
         "@llvm-project//llvm:Support",
         "@llvm-project//llvm:ir_headers",
