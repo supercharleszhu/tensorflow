@@ -23,12 +23,15 @@ limitations under the License.
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "mlir/IR/BuiltinOps.h"  // from @llvm-project
+#include "mlir/Pass/PassManager.h"  // from @llvm-project
 #include "mlir/Support/LogicalResult.h"  // from @llvm-project
 #include "tensorflow/cc/saved_model/constants.h"
 #include "tensorflow/cc/saved_model/loader.h"
+#include "tensorflow/compiler/mlir/lite/stablehlo/transforms/tf_stablehlo_pass.h"
 #include "tensorflow/compiler/mlir/quantization/stablehlo/cc/static_range_ptq.h"
 #include "tensorflow/compiler/mlir/quantization/stablehlo/quantization_config.pb.h"
 #include "tensorflow/compiler/mlir/quantization/tensorflow/python/py_function_lib.h"
+#include "tensorflow/compiler/mlir/tensorflow/transforms/passes.h"
 #include "tensorflow/compiler/mlir/tensorflow/transforms/tf_saved_model_freeze_variables.h"
 #include "tensorflow/core/protobuf/meta_graph.pb.h"
 
@@ -105,6 +108,18 @@ absl::StatusOr<mlir::ModuleOp> RunQuantization(
   if (failed(mlir::tf_saved_model::FreezeVariables(
           module_op, saved_model_bundle->GetSession()))) {
     return absl::InternalError("Failed to freeze variables.");
+  }
+
+  // Run legalize TF to StableHLO pass to convert `tf.Const` and
+  // `tf.Const`->`tf.Cast` patterns after variable freezing. The TF shape
+  // inference pass is also required to resolve unknown shapes in the TF dialect
+  // after variable freezing.
+  mlir::PassManager pm(module_op.getContext());
+  pm.addPass(mlir::TF::CreateTFShapeInferencePass());
+  mlir::odml::AddLegalizeTFToStablehloPasses(pm, /*skip_quantization_ops=*/true,
+                                             /*skip_resize=*/false);
+  if (failed(pm.run(module_op))) {
+    return absl::InternalError("Failed to run legalize TF to StableHLO.");
   }
 
   StaticRangePtqComponent static_range_ptq_component(
