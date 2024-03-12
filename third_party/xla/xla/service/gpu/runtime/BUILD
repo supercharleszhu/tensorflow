@@ -612,6 +612,7 @@ cc_library(
     srcs = ["nccl_collective_permute_thunk.cc"],
     hdrs = ["nccl_collective_permute_thunk.h"],
     deps = [
+        ":nccl_p2p_thunk_common",
         "//xla:status_macros",
         "//xla:xla_data_proto_cc",
         "//xla/hlo/ir:hlo",
@@ -631,6 +632,65 @@ cc_library(
         "@com_google_absl//absl/strings:string_view",
         "@local_tsl//tsl/platform:errors",
         "@local_tsl//tsl/platform:statusor",
+    ],
+)
+
+cc_library(
+    name = "nccl_p2p_thunk_common",
+    srcs = ["nccl_p2p_thunk_common.cc"],
+    hdrs = ["nccl_p2p_thunk_common.h"],
+    deps = [
+        "//xla:shape_util",
+        "//xla:xla_data_proto_cc",
+        "//xla/hlo/ir:hlo",
+        "//xla/service:collective_ops_utils",
+        "//xla/service:hlo_parser",
+        "//xla/service/gpu:nccl_clique_key",
+        "//xla/service/gpu:nccl_collective_thunks",
+        "//xla/stream_executor",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/synchronization",
+        "@llvm-project//mlir:IR",
+    ],
+)
+
+cc_library(
+    name = "nccl_recv_thunk",
+    srcs = ["nccl_recv_thunk.cc"],
+    hdrs = ["nccl_recv_thunk.h"],
+    deps = [
+        ":nccl_p2p_thunk_common",
+        "//xla/hlo/ir:hlo",
+        "//xla/service:collective_ops_utils",
+        "//xla/service:global_device_id",
+        "//xla/service/gpu:nccl_api",
+        "//xla/service/gpu:nccl_clique_key",
+        "//xla/service/gpu:nccl_collective_thunks",
+        "//xla/stream_executor",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:string_view",
+        "@local_tsl//tsl/platform:errors",
+    ],
+)
+
+cc_library(
+    name = "nccl_send_thunk",
+    srcs = ["nccl_send_thunk.cc"],
+    hdrs = ["nccl_send_thunk.h"],
+    deps = [
+        ":nccl_p2p_thunk_common",
+        "//xla/hlo/ir:hlo",
+        "//xla/service:collective_ops_utils",
+        "//xla/service:global_device_id",
+        "//xla/service/gpu:nccl_api",
+        "//xla/service/gpu:nccl_clique_key",
+        "//xla/service/gpu:nccl_collective_thunks",
+        "//xla/stream_executor",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:string_view",
+        "@local_tsl//tsl/platform:errors",
     ],
 )
 

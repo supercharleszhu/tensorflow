@@ -13,8 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#ifndef XLA_SERVICE_GPU_NCCL_P2P_THUNK_COMMON_H_
-#define XLA_SERVICE_GPU_NCCL_P2P_THUNK_COMMON_H_
+#ifndef XLA_SERVICE_GPU_RUNTIME_NCCL_P2P_THUNK_COMMON_H_
+#define XLA_SERVICE_GPU_RUNTIME_NCCL_P2P_THUNK_COMMON_H_
 
 #include <cstdint>
 #include <optional>
@@ -98,4 +98,4 @@ AsyncStreamKind GetStreamKindForSendRecv(const HloSendRecvInstruction* instr);
 }  // namespace gpu
 }  // namespace xla
 
-#endif  // XLA_SERVICE_GPU_NCCL_P2P_THUNK_COMMON_H_
+#endif  // XLA_SERVICE_GPU_RUNTIME_NCCL_P2P_THUNK_COMMON_H_
