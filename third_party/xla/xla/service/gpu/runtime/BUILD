@@ -260,6 +260,7 @@ xla_test(
         ":command_buffer_thunk",
         "//xla:shape_util",
         "//xla:types",
+        "//xla:xla_data_proto_cc",
         "//xla/service:buffer_assignment",
         "//xla/service:executable",
         "//xla/service:platform_util",
@@ -314,6 +315,9 @@ cc_library(
     name = "convolution_thunk",
     srcs = ["convolution_thunk.cc"],
     hdrs = ["convolution_thunk.h"],
+    local_defines = if_cuda_is_configured(["GOOGLE_CUDA=1"]) + if_rocm_is_configured([
+        "TENSORFLOW_USE_ROCM=1",
+    ]),
     deps = [
         "//xla:util",
         "//xla/service:buffer_assignment",
